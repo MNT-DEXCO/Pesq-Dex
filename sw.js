@@ -1,4 +1,4 @@
-const CACHE_NAME = 'dexco-estoque-v34';
+const CACHE_NAME = 'dexco-estoque-v36';
 
 // Ficheiros essenciais que garantem que a App abre mesmo sem internet (App Shell)
 const urlsToCache = [
