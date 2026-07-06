@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>IAM | Central de Acessos Dexco</title>
+
+    <meta name="theme-color" content="#050505">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Portal IAM">
+
+    <link rel="manifest" href="./manifest.json">
+    <link rel="apple-touch-icon" href="./logo.png">
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
+    <style>
+        :root {
+            --bg: #f4f5f7;
+            --surface: #ffffff;
+            --primary: #050505;
+            --border: #e5e7eb;
+            --text: #111827;
+            --text-light: #6b7280;
+            --success: #10b981;
+            --error: #ef4444;
+            --info: #3b82f6;
+            --shadow: 0 10px 25px rgba(0,0,0,0.05);
+        }
+
+        * { box-sizing: border-box; font-family: Inter, system-ui, sans-serif; -webkit-tap-highlight-color: transparent; }
+        body { margin: 0; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+
+        /* Login Screen */
+        #login-screen { position: fixed; inset: 0; background: var(--bg); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 20px; }
+        .login-box { background: var(--surface); padding: 32px; border-radius: 20px; box-shadow: var(--shadow); width: 100%; max-width: 360px; text-align: center; }
+        .brand-mark { display: flex; align-items: center; justify-content: center; gap: 10px; font-weight: 900; letter-spacing: 2px; font-size: 1.4rem; margin-bottom: 8px; }
+        .brand-mark .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--primary); }
+        .login-box p { color: var(--text-light); font-size: 0.85rem; margin-bottom: 24px; line-height: 1.4; }
+        
+        /* Inputs & Buttons (Compactos) */
+        .input-text { width: 100%; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; font-size: 0.95rem; margin-bottom: 12px; transition: 0.2s; background: #fff; }
+        .input-text:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 3px rgba(0,0,0,0.05); }
+        .input-text:disabled { background-color: #f9fafb; cursor: not-allowed; color: var(--text-light); }
+        
+        .btn { width: 100%; padding: 12px 16px; border: none; border-radius: 10px; font-weight: 700; cursor: pointer; transition: 0.2s; font-size: 0.95rem; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+        .btn-dark { background: var(--primary); color: #fff; }
+        .btn-dark:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(0,0,0,0.15); }
+        .btn-light { background: #f3f4f6; color: var(--text); border: 1px solid transparent; }
+        .btn-light:hover { background: #e5e7eb; border-color: #d1d5db; }
+
+        /* Navbar */
+        .navbar { background: var(--primary); color: #fff; padding: 14px 24px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .navbar h1 { margin: 0; font-size: 1.1rem; font-weight: 800; letter-spacing: 0.05em; display: flex; align-items: center; gap: 8px; }
+        .navbar h1 span { background:#fff; width:8px; height:8px; border-radius:50%; display:inline-block; }
+        
+        /* Main Layout */
+        .container { max-width: 1200px; margin: 24px auto; padding: 0 20px; flex: 1; }
+        .header-actions { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 12px; flex-wrap: wrap; }
+        .search-bar { flex: 1; min-width: 250px; position: relative; }
+        .search-bar input { width: 100%; padding: 12px 16px 12px 38px; border-radius: 10px; border: 1px solid var(--border); font-size: 0.95rem; margin: 0; }
+        .search-bar span { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-light); }
+        .btn-group-header { display: flex; gap: 10px; flex-wrap: wrap; }
+        
+        /* Data Grid */
+        .user-grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+        .user-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px; box-shadow: var(--shadow); transition: 0.2s; display: flex; flex-direction: column; gap: 14px; }
+        .user-card:hover { border-color: #d1d5db; transform: translateY(-2px); box-shadow: 0 12px 24px rgba(0,0,0,0.08); }
+        .uc-header { display: flex; justify-content: space-between; align-items: flex-start; }
+        .uc-name { margin: 0; font-size: 1.05rem; font-weight: 800; color: var(--text); }
+        .uc-meta { font-size: 0.75rem; color: var(--text-light); font-weight: 650; margin-top: 4px; display: block; }
+        .badges-area { display: flex; gap: 6px; flex-wrap: wrap; }
+        .badge { padding: 4px 8px; border-radius: 6px; font-size: 0.7rem; font-weight: 800; border: 1px solid; text-transform: uppercase; letter-spacing: 0.05em; }
+        
+        /* Cores Dinamicas Badges */
+        .b-block { background: #fef2f2; color: #dc2626; border-color: #fecaca; }
+        .b-pleno { background: #ecfdf5; color: #059669; border-color: #a7f3d0; } 
+        .b-senior { background: #fdf4ff; color: #c026d3; border-color: #f5d0fe; } 
+        .b-master { background: #eff6ff; color: #2563eb; border-color: #bfdbfe; } 
+
+        /* Offcanvas (Gaveta Lateral) - Arquitetura Flexbox Fixa */
+        .offcanvas-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(3px); z-index: 1000; opacity: 0; pointer-events: none; transition: 0.3s; }
+        .offcanvas-overlay.active { opacity: 1; pointer-events: all; }
+        .offcanvas { position: fixed; right: -400px; top: 0; bottom: 0; width: 100%; max-width: 400px; background: var(--surface); z-index: 1001; box-shadow: -10px 0 40px rgba(0,0,0,0.15); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); display: flex; flex-direction: column; transform: translateX(0); }
+        .offcanvas.open { transform: translateX(-100%); }
+        
+        .offcanvas-header { padding: 18px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: #fafafa; flex-shrink: 0; }
+        .offcanvas-header h2 { margin: 0; font-size: 1.15rem; font-weight: 900; }
+        .btn-close { background: none; border: none; font-size: 1.4rem; cursor: pointer; color: var(--text-light); padding: 4px; line-height: 1; border-radius: 8px; }
+        .btn-close:hover { background: #e5e7eb; color: #111; }
+        
+        .offcanvas-body { padding: 20px; flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
+        
+        .offcanvas-footer { padding: 16px 20px; border-top: 1px solid var(--border); background: var(--surface); display: flex; gap: 10px; flex-shrink: 0; }
+
+        /* Form & Segmented Controls */
+        .form-group label.group-title { display: block; font-size: 0.8rem; font-weight: 800; color: var(--text-light); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em; }
+        .form-row { display: flex; gap: 10px; }
+        .form-row .form-group { flex: 1; }
+        
+        .segmented-control { display: flex; background: #f3f4f6; border-radius: 10px; padding: 4px; gap: 4px; flex-wrap: wrap; }
+        .segmented-control label { flex: 1; text-align: center; padding: 8px 4px; border-radius: 6px; cursor: pointer; font-size: 0.75rem; font-weight: 800; color: #6b7280; transition: 0.2s; margin: 0; min-width: 60px; }
+        .segmented-control input[type="radio"] { display: none; }
+        .segmented-control input[type="radio"]:checked + label { background: var(--surface); box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
+        
+        .seg-sys input[type="radio"][value="bloqueado"]:checked + label { color: var(--error); }
+        .seg-sys input[type="radio"][value="pleno"]:checked + label { color: #059669; }
+        .seg-sys input[type="radio"][value="senior"]:checked + label { color: #c026d3; }
+        .seg-sys input[type="radio"][value="master"]:checked + label { color: var(--info); }
+
+        /* Lista de Módulos (Admin) */
+        .module-list { display: flex; flex-direction: column; gap: 8px; }
+        .module-item { background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 12px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+        .module-item-info strong { font-size: 0.9rem; display: block; color: var(--text); margin-bottom: 2px; }
+        .module-item-info span { font-size: 0.7rem; color: var(--text-light); font-weight: 600; }
+        .module-actions { display: flex; gap: 6px; }
+        .btn-icon { background: #f9fafb; border: 1px solid var(--border); font-size: 0.9rem; cursor: pointer; padding: 6px 8px; border-radius: 6px; transition: 0.2s; }
+        .btn-icon:hover { background: #e5e7eb; transform: translateY(-1px); }
+
+        /* Linha Divisória */
+        .divider { height: 1px; background: var(--border); margin: 4px 0; width: 100%; }
+
+        /* Toast */
+        .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(100px); background: var(--primary); color: #fff; padding: 12px 24px; border-radius: 30px; font-weight: 700; font-size: 0.85rem; transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1); opacity: 0; z-index: 2000; box-shadow: 0 10px 25px rgba(0,0,0,0.2); pointer-events: none; text-align: center; }
+        .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+        /* --- ATUALIZAÇÃO SILENCIOSA E BANNER DE INSTALAÇÃO (PWA) --- */
+        .update-toast {
+            position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-150%);
+            background: rgba(0,0,0,0.95); color: #fff; padding: 16px 20px; border-radius: 16px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3); display: none; align-items: center; gap: 16px;
+            z-index: 10050; width: 90%; max-width: 450px; border: 1px solid rgba(255,255,255,0.1);
+            transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            backdrop-filter: blur(10px);
+        }
+        .update-toast.show { transform: translateX(-50%) translateY(0); }
+        .update-toast button {
+            background: var(--info); color: #fff; border: none; padding: 10px 16px; border-radius: 12px;
+            font-weight: 800; font-size: 0.85rem; cursor: pointer; transition: 0.2s; white-space: nowrap;
+        }
+        .update-toast button:hover { opacity: 0.9; transform: scale(1.05); }
+
+        .install-banner {
+            position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(200%);
+            background: #fff; border: 1px solid var(--border); border-radius: 18px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15); display: flex; align-items: center; gap: 14px;
+            z-index: 10040; width: 90%; max-width: 450px; padding: 16px;
+            transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .install-banner.show { transform: translateX(-50%) translateY(0); }
+        .install-banner-info { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+        .install-banner-title { font-weight: 800; font-size: 1rem; color: #111; line-height: 1.1; }
+        .install-banner-desc { font-size: 0.78rem; color: #6b7280; line-height: 1.3; }
+        .install-banner-actions { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+        .install-banner-actions .btn-install { background: #000; color: #fff; border: none; padding: 10px 16px; border-radius: 12px; font-weight: 800; font-size: 0.85rem; cursor: pointer; transition: .2s ease; }
+        .install-banner-actions .btn-install:hover { background: #222; }
+        .install-banner-actions .btn-dismiss { background: #f3f4f6; color: #111; border: none; padding: 10px; border-radius: 12px; font-weight: 800; font-size: 0.9rem; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 38px; height: 38px; }
+
+
+        @media(max-width: 600px) {
+            .navbar { padding: 14px 16px; }
+            .header-actions { flex-direction: column; align-items: stretch; }
+            .btn-group-header { flex-direction: column; }
+            .offcanvas { right: -100%; max-width: 100%; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="update-toast" class="update-toast">
+    <div style="flex:1;">
+        <div style="font-weight:900; font-size:0.95rem; margin-bottom:4px; display:flex; align-items:center; gap:6px;">
+            <span style="font-size:1.2rem;">🔄</span> NOVA ATUALIZAÇÃO
+        </div>
+        <div style="font-size:0.8rem; color:rgba(255,255,255,0.8); line-height:1.3;">
+            O Portal IAM foi atualizado.
+        </div>
+    </div>
+    <button onclick="applyUpdate()">RECARREGAR</button>
+</div>
+
+<div id="install-banner" class="install-banner">
+    <div style="font-size: 1.8rem;">⚙️</div>
+    <div class="install-banner-info">
+        <div class="install-banner-title">Instalar Portal IAM</div>
+        <div class="install-banner-desc">Instale no seu dispositivo para gestão rápida de acessos.</div>
+    </div>
+    <div class="install-banner-actions">
+        <button class="btn-dismiss" onclick="dismissInstallBanner()" title="Agora não">✕</button>
+        <button class="btn-install" onclick="installApp()">Instalar</button>
+    </div>
+</div>
+
+<div id="login-screen">
+    <div class="login-box">
+        <div class="brand-mark">
+            <span class="dot"></span> DEXCO
+        </div>
+        <h2 style="margin-top:0; font-weight: 900; font-size: 1.4rem;">Portal IAM</h2>
+        <p>Identity & Access Management.<br>Acesso restrito a Administradores.</p>
+        <input type="password" id="input-senha" class="input-text" placeholder="Palavra-passe Mestra" style="text-align: center;" onkeyup="if(event.key==='Enter') verificarLogin()">
+        <button class="btn btn-dark" onclick="verificarLogin()">Entrar no Portal</button>
+    </div>
+</div>
+
+<nav class="navbar">
+    <h1><span></span> IAM Center</h1>
+    <button class="btn btn-light" style="width:auto; padding:8px 12px; font-size:0.8rem;" onclick="sair()">🚪 Sair</button>
+</nav>
+
+<div class="container">
+    <div class="header-actions">
+        <div class="search-bar">
+            <span>⌕</span>
+            <input type="text" id="busca" placeholder="Procurar técnico por nome..." onkeyup="renderizarGrid()">
+        </div>
+        <div class="btn-group-header">
+            <button class="btn btn-light" style="width:auto;" onclick="abrirPainelModulos()">⚙️ Gerenciar Módulos</button>
+            <button class="btn btn-dark" style="width:auto;" onclick="abrirPainelNovo()">➕ Novo Utilizador</button>
+        </div>
+    </div>
+
+    <div class="user-grid" id="grid-usuarios">
+        </div>
+</div>
+
+<div class="offcanvas-overlay" id="overlay" onclick="fecharPaineis()"></div>
+
+<div class="offcanvas" id="painel-edicao">
+    <div class="offcanvas-header">
+        <h2 id="painel-titulo">Editar Acessos</h2>
+        <button class="btn-close" onclick="fecharPaineis()">✕</button>
+    </div>
+    
+    <div class="offcanvas-body">
+        <input type="hidden" id="edit-id">
+        
+        <div class="form-group">
+            <label class="group-title">Nome Completo</label>
+            <input type="text" id="edit-nome" class="input-text" placeholder="Ex: João Silva" style="margin-bottom:0;">
+        </div>
+
+        <div class="form-group" style="margin-top: 4px;">
+            <label class="group-title">⚡ Aplicar Perfil Rápido</label>
+            <select id="preset-perfil" class="input-text" onchange="aplicarPreset()" style="margin-bottom:0; font-weight: bold; background: #f9fafb;">
+                <option value="">-- Selecione para preencher --</option>
+                <option value="bloqueado">🚫 Bloquear Todos os Acessos</option>
+                <option value="pleno">🛠️ Técnico de Base (Pleno)</option>
+                <option value="senior">⭐ Administrador de Turno (Sênior)</option>
+                <option value="master">👑 Gestor do Sistema (Master)</option>
+            </select>
+        </div>
+
+        <div class="divider"></div>
+
+        <div id="projetos-container" style="display: flex; flex-direction: column; gap: 12px;">
+            <p style="text-align:center; color:var(--text-light); font-size:0.85rem; margin:0;">A carregar módulos...</p>
+        </div>
+
+        <div class="divider"></div>
+        
+        <div class="form-group" style="margin-top: auto;">
+            <label class="group-title" style="color:var(--error);">Zona de Perigo</label>
+            <button class="btn btn-light" id="btn-reset-senha" style="margin-bottom: 8px;" onclick="resetarSenha()">🔑 Exigir Nova Palavra-passe</button>
+            <button class="btn btn-light" id="btn-apagar-usr" style="color:var(--error); border-color: #fecaca;" onclick="excluirUtilizador()">🗑️ Apagar Conta Definitivamente</button>
+        </div>
+    </div>
+    
+    <div class="offcanvas-footer">
+        <button class="btn btn-light" style="flex:1;" onclick="fecharPaineis()">Cancelar</button>
+        <button class="btn btn-dark" style="flex:2;" onclick="salvarUtilizador()">💾 Salvar Dados</button>
+    </div>
+</div>
+
+<div class="offcanvas" id="painel-modulos">
+    <div class="offcanvas-header">
+        <h2 id="modulos-main-title">Gestor de Projetos</h2>
+        <button class="btn-close" onclick="fecharPaineis()">✕</button>
+    </div>
+    
+    <div class="offcanvas-body" id="view-modulos-lista">
+        <div class="form-group" style="flex: 1;">
+            <label class="group-title">Módulos Ativos no Ecossistema</label>
+            <div id="lista-modulos" class="module-list">
+                </div>
+            <button class="btn btn-light" style="width:100%; border: 1px dashed var(--text-light); margin-top: 16px; background: #fff;" onclick="alternarVistaModulo(true)">➕ Criar Novo Projeto</button>
+        </div>
+    </div>
+    <div class="offcanvas-footer" id="footer-modulos-lista">
+        <button class="btn btn-light" style="width:100%;" onclick="fecharPaineis()">Fechar</button>
+    </div>
+
+    <div class="offcanvas-body" id="view-modulos-form" style="display: none;">
+        <div class="form-group">
+            <label class="group-title">Chave do Sistema (ID único)</label>
+            <input type="text" id="mod-id" class="input-text" placeholder="Ex: gestaoativos" oninput="this.value = this.value.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()">
+            <span style="font-size: 0.7rem; color: var(--text-light); display:block; margin-top:-8px; margin-bottom: 12px;">Deve ser exato ao inserido no código do App.</span>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group" style="flex: 0.3;">
+                <label class="group-title">Ícone</label>
+                <input type="text" id="mod-icon" class="input-text" placeholder="Ex: 📦">
+            </div>
+            <div class="form-group" style="flex: 0.7;">
+                <label class="group-title">Badge Curta</label>
+                <input type="text" id="mod-badge" class="input-text" placeholder="Ex: Ativos">
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label class="group-title">Nome de Exibição Completo</label>
+            <input type="text" id="mod-label" class="input-text" placeholder="Ex: Gestão de Ativos">
+        </div>
+    </div>
+    <div class="offcanvas-footer" id="footer-modulos-form" style="display: none;">
+        <button class="btn btn-light" style="flex:1;" onclick="alternarVistaModulo(false)">Voltar</button>
+        <button class="btn btn-dark" id="btn-salvar-mod" style="flex:2;" onclick="salvarModulo()">💾 Salvar Módulo</button>
+    </div>
+</div>
+
+<div class="toast" id="toast">Ação concluída com sucesso!</div>
+
+<script>
+    // ==========================================
+    // --- PWA E ATUALIZAÇÃO SILENCIOSA (PADRÃO OURO) ---
+    // ==========================================
+    let newWorker;
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js').then(reg => {
+                
+                setInterval(() => { reg.update(); }, 7200000); // 2h
+
+                reg.addEventListener('updatefound', () => {
+                    newWorker = reg.installing;
+                    newWorker.addEventListener('statechange', () => {
+                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                            const updateToast = document.getElementById('update-toast');
+                            updateToast.style.display = 'flex';
+                            setTimeout(() => updateToast.classList.add('show'), 100);
+                        }
+                    });
+                });
+            }).catch(console.error);
+        });
+
+        let refreshing;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+            if (refreshing) return;
+            refreshing = true;
+            window.location.reload();
+        });
+    }
+
+    function applyUpdate() { if (newWorker) newWorker.postMessage({ action: 'skipWaiting' }); }
+
+    // --- LÓGICA DE INSTALAÇÃO PWA ---
+    let deferredPrompt;
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+
+        if(!sessionStorage.getItem('installDismissed')) {
+            setTimeout(() => {
+                const banner = document.getElementById('install-banner');
+                if(banner) banner.classList.add('show');
+            }, 1500);
+        }
+    });
+
+    function dismissInstallBanner() {
+        const banner = document.getElementById('install-banner');
+        if(banner) banner.classList.remove('show');
+        sessionStorage.setItem('installDismissed', 'true');
+    }
+
+    function installApp() {
+        if (deferredPrompt) {
+            deferredPrompt.prompt();
+            deferredPrompt.userChoice.then((choiceResult) => {
+                if (choiceResult.outcome === 'accepted') {
+                    dismissInstallBanner();
+                }
+                deferredPrompt = null;
+            });
+        } else {
+            alert("Instale via opções do navegador ('Adicionar à Tela Inicial').");
+        }
+    }
+
+
+    // --- CONEXÃO FIREBASE ---
+    const firebaseConfig = {
+        apiKey: "AIzaSyCgEXHYlK1HqxjEW-wBveu-iAZDDxUD1gQ",
+        authDomain: "motores-dexco.firebaseapp.com",
+        projectId: "motores-dexco",
+        storageBucket: "motores-dexco.firebasestorage.app",
+        messagingSenderId: "872411715257",
+        appId: "1:872411715257:web:a79439d778d115b3892d68"
+    };
+
+    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    let usuariosData = [];
+    const SENHA_MESTRA = "dexco123";
+
+    // MATRIZ DINÂMICA
+    let MODULOS_PROJETO = [];
+    const NIVEIS_ACESSO = [
+        { value: 'bloqueado', label: 'Block' },
+        { value: 'pleno', label: 'Pleno' },
+        { value: 'senior', label: 'Sênior' },
+        { value: 'master', label: 'Master' }
+    ];
+
+    window.onload = () => {
+        if (localStorage.getItem('iam_auth') === 'true') {
+            document.getElementById('login-screen').style.display = 'none';
+            iniciarPortal();
+        }
+    };
+
+    function verificarLogin() {
+        if (document.getElementById('input-senha').value === SENHA_MESTRA) {
+            localStorage.setItem('iam_auth', 'true');
+            document.getElementById('login-screen').style.display = 'none';
+            iniciarPortal();
+        } else {
+            mostrarToast("Palavra-passe incorreta.");
+        }
+    }
+
+    function sair() {
+        localStorage.removeItem('iam_auth');
+        location.reload();
+    }
+
+    function normalizarNivel(nivelStr) {
+        if (!nivelStr) return 'bloqueado';
+        const nivel = nivelStr.toLowerCase();
+        if (nivel === 'padrao' || nivel === 'tecnico') return 'pleno';
+        if (!NIVEIS_ACESSO.some(n => n.value === nivel)) return 'bloqueado';
+        return nivel;
+    }
+
+    // --- CARREGAMENTO DE DADOS ---
+    function iniciarPortal() {
+        db.collection('projetos').onSnapshot(snap => {
+            MODULOS_PROJETO = [];
+            snap.forEach(doc => {
+                let data = doc.data();
+                MODULOS_PROJETO.push({
+                    key: doc.id,
+                    icon: data.icon || '🔹',
+                    label: data.label || doc.id,
+                    aliasBadge: data.aliasBadge || doc.id
+                });
+            });
+
+            if (MODULOS_PROJETO.length === 0) {
+                document.getElementById('projetos-container').innerHTML = 
+                    `<p style="text-align:center; color:var(--text-light); font-size:0.85rem; margin:0;">Nenhum módulo configurado.</p>`;
+            } else {
+                montarDOMProjetos();
+            }
+            
+            renderizarListaModulosAdmin();
+            carregarUsuarios(); 
+        }, erro => {
+            console.error("Erro ao ler projetos", erro);
+            mostrarToast("Falha ao carregar projetos.");
+        });
+    }
+
+    function carregarUsuarios() {
+        db.collection('usuarios').onSnapshot(snap => {
+            usuariosData = [];
+            snap.forEach(doc => {
+                let data = doc.data();
+                let permData = data.permissoes; 
+                let oldRole = data.role || 'bloqueado';
+                
+                let hasPermissoes = permData && Object.keys(permData).length > 0;
+                
+                let permissoesTratadas = {};
+                MODULOS_PROJETO.forEach(mod => {
+                    let valorCru = 'bloqueado';
+                    if (hasPermissoes) {
+                        valorCru = permData[mod.key] !== undefined ? permData[mod.key] : 'bloqueado';
+                    } else {
+                        valorCru = oldRole;
+                    }
+                    permissoesTratadas[mod.key] = normalizarNivel(valorCru);
+                });
+                
+                usuariosData.push({
+                    id: doc.id,
+                    nome: data.nome,
+                    senha: data.senha || '',
+                    roleLegacy: oldRole,
+                    perm: permissoesTratadas
+                });
+            });
+            renderizarGrid();
+        }, erro => {
+            console.error("Erro ao ler usuários", erro);
+        });
+    }
+
+    // --- RENDERIZAÇÃO DE INTERFACE ---
+    function montarDOMProjetos() {
+        const container = document.getElementById('projetos-container');
+        try {
+            let htmlFinal = '';
+            MODULOS_PROJETO.forEach(mod => {
+                let radiosHTML = NIVEIS_ACESSO.map(nivel => `
+                    <input type="radio" name="perm_${mod.key}" id="${mod.key}_${nivel.value}" value="${nivel.value}">
+                    <label for="${mod.key}_${nivel.value}">${nivel.label}</label>
+                `).join('');
+
+                htmlFinal += `
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label class="group-title">${mod.icon} ${mod.label}</label>
+                        <div class="segmented-control seg-sys">
+                            ${radiosHTML}
+                        </div>
+                    </div>
+                `;
+            });
+            container.innerHTML = htmlFinal;
+        } catch(e) {
+            console.error("Erro ao montar DOM", e);
+        }
+    }
+
+    function renderizarListaModulosAdmin() {
+        const container = document.getElementById('lista-modulos');
+        if(MODULOS_PROJETO.length === 0) {
+            container.innerHTML = `<p style="font-size:0.85rem; color:var(--text-light); text-align:center; background:#f9fafb; padding:16px; border-radius:10px;">Sem projetos. Crie o primeiro!</p>`;
+            return;
+        }
+
+        container.innerHTML = MODULOS_PROJETO.map(mod => `
+            <div class="module-item">
+                <div class="module-item-info">
+                    <strong>${mod.icon} ${mod.label}</strong>
+                    <span>ID: ${mod.key} | Badge: ${mod.aliasBadge}</span>
+                </div>
+                <div class="module-actions">
+                    <button class="btn-icon" onclick="prepararEdicaoModulo('${mod.key}')" title="Editar">✏️</button>
+                    <button class="btn-icon" style="color:var(--error);" onclick="excluirModulo('${mod.key}', '${mod.label}')" title="Excluir">🗑️</button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function getBadgeHtml(alias, level) {
+        if(level === 'bloqueado') return '';
+        let labelFormatada = level.charAt(0).toUpperCase() + level.slice(1);
+        let cls = `b-${level}`; 
+        return `<span class="badge ${cls}">${alias}: ${labelFormatada}</span>`;
+    }
+
+    function renderizarGrid() {
+        const grid = document.getElementById('grid-usuarios');
+        const termo = document.getElementById('busca').value.toLowerCase();
+        
+        grid.innerHTML = '';
+        
+        let filtrados = usuariosData.filter(u => u.nome.toLowerCase().includes(termo));
+        
+        filtrados.sort((a, b) => a.nome.localeCompare(b.nome)).forEach(u => {
+            let passInfo = u.senha === '' ? '<span style="color:var(--error);">⚠️ Sem Palavra-passe</span>' : '<span style="color:var(--success);">✅ Registo Ativo</span>';
+            
+            let badgesHTML = '';
+            MODULOS_PROJETO.forEach(mod => {
+                badgesHTML += getBadgeHtml(mod.icon + ' ' + mod.aliasBadge, u.perm[mod.key]);
+            });
+            
+            if(badgesHTML === '') badgesHTML = `<span class="badge b-block">🚫 Sem Acessos</span>`;
+
+            grid.innerHTML += `
+                <div class="user-card">
+                    <div class="uc-header">
+                        <div>
+                            <h3 class="uc-name">${u.nome}</h3>
+                            <span class="uc-meta">Status: ${passInfo}</span>
+                        </div>
+                        <button class="btn btn-light" style="padding:6px 12px; font-size:0.8rem; width:auto;" onclick="abrirPainelEdicao('${u.id}')">Editar</button>
+                    </div>
+                    <div class="badges-area">${badgesHTML}</div>
+                </div>
+            `;
+        });
+    }
+
+    function aplicarPreset() {
+        const nivelSelecionado = document.getElementById('preset-perfil').value;
+        if(!nivelSelecionado) return;
+        
+        MODULOS_PROJETO.forEach(mod => {
+            const radio = document.querySelector(`input[name="perm_${mod.key}"][value="${nivelSelecionado}"]`);
+            if(radio) radio.checked = true;
+        });
+    }
+
+    // --- GERENCIAMENTO DOS PAINEIS/GAVETAS ---
+    function fecharPaineis() {
+        document.getElementById('overlay').classList.remove('active');
+        document.getElementById('painel-edicao').classList.remove('open');
+        document.getElementById('painel-modulos').classList.remove('open');
+    }
+
+    function abrirPainelNovo() {
+        fecharPaineis();
+        document.getElementById('painel-titulo').innerText = "Novo Técnico";
+        document.getElementById('edit-id').value = '';
+        document.getElementById('edit-nome').value = '';
+        document.getElementById('preset-perfil').value = ''; 
+        
+        MODULOS_PROJETO.forEach(mod => {
+            const radio = document.querySelector(`input[name="perm_${mod.key}"][value="bloqueado"]`);
+            if(radio) radio.checked = true;
+        });
+        
+        document.getElementById('btn-reset-senha').style.display = 'none';
+        document.getElementById('btn-apagar-usr').style.display = 'none';
+        
+        document.getElementById('overlay').classList.add('active');
+        document.getElementById('painel-edicao').classList.add('open');
+    }
+
+    function abrirPainelEdicao(id) {
+        fecharPaineis();
+        let u = usuariosData.find(x => x.id === id);
+        if(!u) return;
+
+        document.getElementById('painel-titulo').innerText = "Editar Técnico";
+        document.getElementById('edit-id').value = u.id;
+        document.getElementById('edit-nome').value = u.nome;
+        document.getElementById('preset-perfil').value = ''; 
+
+        MODULOS_PROJETO.forEach(mod => {
+            let nivelAtual = u.perm[mod.key] || 'bloqueado';
+            const radio = document.querySelector(`input[name="perm_${mod.key}"][value="${nivelAtual}"]`);
+            if(radio) radio.checked = true;
+        });
+
+        document.getElementById('btn-reset-senha').style.display = 'block';
+        document.getElementById('btn-apagar-usr').style.display = 'block';
+
+        document.getElementById('overlay').classList.add('active');
+        document.getElementById('painel-edicao').classList.add('open');
+    }
+
+    function alternarVistaModulo(isForm, isEdicao = false) {
+        if(isForm) {
+            document.getElementById('view-modulos-lista').style.display = 'none';
+            document.getElementById('footer-modulos-lista').style.display = 'none';
+            document.getElementById('view-modulos-form').style.display = 'flex';
+            document.getElementById('footer-modulos-form').style.display = 'flex';
+            
+            document.getElementById('modulos-main-title').innerText = isEdicao ? "✏️ Editar Projeto" : "➕ Novo Projeto";
+            document.getElementById('btn-salvar-mod').innerHTML = isEdicao ? "💾 Atualizar" : "➕ Criar";
+            
+            if(!isEdicao) resetarFormModulo(false);
+        } else {
+            document.getElementById('view-modulos-lista').style.display = 'flex';
+            document.getElementById('footer-modulos-lista').style.display = 'flex';
+            document.getElementById('view-modulos-form').style.display = 'none';
+            document.getElementById('footer-modulos-form').style.display = 'none';
+            document.getElementById('modulos-main-title').innerText = "Gestor de Projetos";
+        }
+    }
+
+    function abrirPainelModulos() {
+        fecharPaineis();
+        renderizarListaModulosAdmin(); 
+        alternarVistaModulo(false);
+        document.getElementById('overlay').classList.add('active');
+        document.getElementById('painel-modulos').classList.add('open');
+    }
+
+    function prepararEdicaoModulo(key) {
+        const mod = MODULOS_PROJETO.find(m => m.key === key);
+        if(!mod) return;
+        
+        document.getElementById('mod-id').value = mod.key;
+        document.getElementById('mod-id').disabled = true; 
+        document.getElementById('mod-icon').value = mod.icon;
+        document.getElementById('mod-badge').value = mod.aliasBadge;
+        document.getElementById('mod-label').value = mod.label;
+
+        alternarVistaModulo(true, true);
+    }
+
+    function resetarFormModulo(fecharVista = true) {
+        document.getElementById('mod-id').value = '';
+        document.getElementById('mod-id').disabled = false;
+        document.getElementById('mod-icon').value = '';
+        document.getElementById('mod-badge').value = '';
+        document.getElementById('mod-label').value = '';
+
+        if(fecharVista) alternarVistaModulo(false);
+    }
+
+    // --- TRANSAÇÕES DE BANCO E CRUD ---
+    async function excluirModulo(key, label) {
+        if(!confirm(`⚠️ ATENÇÃO: Tem a certeza que deseja excluir o módulo "${label}" do sistema?`)) return;
+        try {
+            await db.collection('projetos').doc(key).delete();
+            mostrarToast("Módulo excluído com sucesso!");
+            resetarFormModulo(); 
+        } catch(e) { console.error(e); mostrarToast("Erro ao excluir módulo."); }
+    }
+
+    async function salvarModulo() {
+        const id = document.getElementById('mod-id').value.trim();
+        const icon = document.getElementById('mod-icon').value.trim();
+        const badge = document.getElementById('mod-badge').value.trim();
+        const label = document.getElementById('mod-label').value.trim();
+        const isEditing = document.getElementById('mod-id').disabled;
+
+        if(!id || !label) return mostrarToast("ID e Nome são obrigatórios!");
+
+        try {
+            await db.collection('projetos').doc(id).set({
+                icon: icon || '🔹',
+                label: label,
+                aliasBadge: badge || label
+            }, { merge: true });
+
+            mostrarToast(isEditing ? "Projeto atualizado!" : "Novo projeto adicionado!");
+            alternarVistaModulo(false); 
+        } catch(e) { console.error(e); mostrarToast("Erro ao gravar dados."); }
+    }
+
+    async function salvarUtilizador() {
+        const id = document.getElementById('edit-id').value;
+        const nome = document.getElementById('edit-nome').value.trim();
+        if(!nome) return mostrarToast("O nome é obrigatório!");
+
+        let dictPermissoes = {};
+        let isMasterEmAlgum = false;
+
+        MODULOS_PROJETO.forEach(mod => {
+            const selecionado = document.querySelector(`input[name="perm_${mod.key}"]:checked`);
+            let valor = selecionado ? selecionado.value : 'bloqueado';
+            dictPermissoes[mod.key] = valor;
+            if(valor === 'master') isMasterEmAlgum = true;
+        });
+
+        const roleLegacy = isMasterEmAlgum ? 'master' : 'padrao';
+        const payload = { nome: nome, role: roleLegacy, permissoes: dictPermissoes };
+
+        try {
+            if(id) {
+                await db.collection('usuarios').doc(id).update(payload);
+                mostrarToast("Acessos atualizados!");
+            } else {
+                payload.senha = ''; 
+                let novoId = 'usr_' + Date.now();
+                await db.collection('usuarios').doc(novoId).set(payload);
+                mostrarToast("Novo técnico registado!");
+            }
+            fecharPaineis();
+        } catch(e) { console.error(e); mostrarToast("Erro ao gravar dados."); }
+    }
+
+    async function resetarSenha() {
+        if(!confirm("Tem a certeza? No próximo acesso, será pedido que o utilizador crie uma nova palavra-passe.")) return;
+        try {
+            const id = document.getElementById('edit-id').value;
+            await db.collection('usuarios').doc(id).update({ senha: '' });
+            mostrarToast("Palavra-passe removida.");
+            fecharPaineis();
+        } catch(e) { console.error(e); mostrarToast("Falha ao resetar palavra-passe."); }
+    }
+
+    async function excluirUtilizador() {
+        if(!confirm("⚠️ AÇÃO IRREVERSÍVEL: Tem certeza que deseja apagar este utilizador do banco de dados global?\n\nEle será expulso imediatamente de todos os aplicativos Dexco.")) return;
+        try {
+            const id = document.getElementById('edit-id').value;
+            await db.collection('usuarios').doc(id).delete();
+            mostrarToast("Utilizador apagado com sucesso.");
+            fecharPaineis();
+        } catch(e) { console.error(e); mostrarToast("Falha ao apagar utilizador."); }
+    }
+
+    function mostrarToast(msg) {
+        const t = document.getElementById('toast');
+        t.innerText = msg;
+        t.classList.add('show');
+        setTimeout(() => t.classList.remove('show'), 3000);
+    }
+</script>
+</body>
+</html>
