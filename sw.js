@@ -1,5 +1,5 @@
 // O 'v2' é o gatilho. Ele força os telemóveis a apagarem a cache antiga e a puxarem o novo ícone.
-const CACHE_NAME = 'dexco-estoque-v2';
+const CACHE_NAME = 'dexco-estoque-v3';
 const urlsToCache = [
     './',
     './index.html',
