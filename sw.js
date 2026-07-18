@@ -1,4 +1,4 @@
-const CACHE_NAME = 'dexco-estoque-v41';
+const CACHE_NAME = 'dexco-estoque-v2';
 
 const urlsToCache = [
   './',
